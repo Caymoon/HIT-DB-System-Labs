@@ -71,7 +71,14 @@ select ename
     group by essn
     having count(distinct pno) >= "{n}"
     and sum(hours) <= "{hours}"
-"""]
+""",
+# 10
+"""
+select count(distinct essn)
+    from works_on
+    where pno = "{pno}"
+"""
+]
 
 dbConf = dict(
     host = 'localhost',
@@ -91,7 +98,10 @@ def mysql_query(sql, **kw):
     results = cur.fetchall()
 
     for item in results:
-        print '\t'.join(item)
+        l = []
+        for i in range(len(item)):
+            l.append(str(item[i]))
+        print '\t'.join(l)
 
     conn.commit()
     cur.close()

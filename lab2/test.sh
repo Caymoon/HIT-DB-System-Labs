@@ -19,3 +19,6 @@
 ./company_query -q 8 -p %SALARY%=10000
 # 9
 ./company_query -q 9 -p %N%=2 %HOURS%=200
+
+#10
+./company_query -q 10 -p %PNO%=P2
