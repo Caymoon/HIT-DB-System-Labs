@@ -7,12 +7,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "extmem.h"
 
 Buffer *initBuffer(size_t bufSize, size_t blkSize, Buffer *buf)
 {
-    int i;
-
     buf->numIO = 0;
     buf->bufSize = bufSize;
     buf->blkSize = blkSize;
@@ -85,7 +84,7 @@ unsigned char *readBlockFromDisk(unsigned int addr, Buffer *buf)
 {
     char filename[40];
     unsigned char *blkPtr, *bytePtr;
-    char ch;
+    int ch;
 
     if (buf->numFreeBlk == 0)
     {
@@ -104,7 +103,7 @@ unsigned char *readBlockFromDisk(unsigned int addr, Buffer *buf)
     }
 
     sprintf(filename, "%d.blk", addr);
-    FILE *fp = fopen(filename, "r");
+    FILE *fp = fopen(filename, "rb");
 
     if (!fp)
     {
@@ -134,7 +133,7 @@ int writeBlockToDisk(unsigned char *blkPtr, unsigned int addr, Buffer *buf)
     unsigned char *bytePtr;
 
     sprintf(filename, "%d.blk", addr);
-    FILE *fp = fopen(filename, "w");
+    FILE *fp = fopen(filename, "wb");
 
     if (!fp)
     {
