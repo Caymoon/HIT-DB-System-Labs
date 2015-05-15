@@ -29,6 +29,24 @@ S gen_S() {
     return newS;
 }
 
+/**
+ * 已经插入返回 -1
+ * 成功插入返回 1
+ * 否则返回 0
+ */
+int setPush(int *Array, int value) {
+    int i;
+    for(i=0; i<40; i++) {
+        if (Array[i] == value) {
+            return -1;
+        } else if (Array[i] == 0) {
+            Array[i] = value;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int main()
 {
     Buffer buf; /* A buffer */
@@ -47,6 +65,7 @@ int main()
     char selection;
     int temp;
     int block_usage = 0;
+    int Array[40];
 
     srand((unsigned int)(time(0)));
 
@@ -110,7 +129,9 @@ int main()
         scanf("%c", &selection);
 
         if (selection == '1') {
-            /*关系选择算法 选出R.A=40或S.C=60的元组*/
+            /**
+             * 关系选择算法 选出R.A=40或S.C=60的元组
+             * */
             blk = getNewBlockInBuffer(&buf);
             block_usage = 0;
             for(i = 0; i < 16; i++) {
@@ -179,19 +200,63 @@ int main()
             }
             r1Base = 3456;
         } else if (selection == '2') {
-            /*关系投影算法, 对关系R上的A属性进行投影*/
+            /**
+             * 关系投影算法, 对关系R上的A属性进行投影
+             * */
+            block_usage = 0;
+            blk = getNewBlockInBuffer(&buf);
             for(i = 0; i < 16; i++) {
                 if ((blkR = (R *)readBlockFromDisk(rDiskBase, &buf)) == NULL) {
                     perror("Reading Block Failed!\n");
                     return -1;
                 }
                 for (j = 0; j < 7; j++) {
+                    temp = setPush(Array, (blkR+j)->A);
+                    if (temp == -1) {
+                        continue;
+                    } else if (temp == 1) {
+                        // add to block
+                        printf("%d\t%d\n", blkR[j].A, blkR[j].B);
+                        if(block_usage == BLOCK_SIZE-8) {
+                            *(unsigned int *)(blk+block_usage) = r2Base + BLOCK_SIZE;
+                            *(unsigned int *)(blk+block_usage+sizeof(int)) = 0;
+                            if (writeBlockToDisk(blk, r2Base, &buf) != 0)
+                            {
+                                perror("Writing Block Failed!\n");
+                                return -1;
+                            }
+                            r2Base += BLOCK_SIZE;
+                            blk = getNewBlockInBuffer(&buf);
+                            block_usage = 0;
+                        }
+                        *(R *)(blk+block_usage) = blkR[j];
+                        block_usage += sizeof(R);
+                    } else if (temp == 0) {
+                        printf("Error Occured.");
+                    }
+
                 }
-                temp = blkR[i].B;
+                freeBlockInBuffer((unsigned char * )blkR, &buf);
+            }
+            // 剩余部分写入文件
+            while(block_usage < BLOCK_SIZE-4) {
+                *(unsigned int *)(blk+block_usage) = 0;
+                block_usage += sizeof(int);
+            }
+            if (writeBlockToDisk(blk, r2Base, &buf) != 0)
+            {
+                perror("Writing Block Failed!\n");
+                return -1;
             }
             r2Base = 100000;
         } else if (selection == '3') {
-            /*NLJ 算法， R.A 连接 S.C */
+            /**
+             * NLJ 算法， R.A 连接 S.C
+             * */
+            block_usage = 0;
+            blk = getNewBlockInBuffer(&buf);
+
+
             r3Base = 800000;
         } else {
             break;
