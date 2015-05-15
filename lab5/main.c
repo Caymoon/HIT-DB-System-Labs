@@ -1,10 +1,3 @@
-/*
- * test.c
- * Zhaonian Zou
- * Harbin Institute of Technology
- * Jun 22, 2011
- */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -31,7 +24,7 @@ R gen_R() {
 
 S gen_S() {
     S newS;
-    newS.C = rand() % 40 + 20;
+    newS.C = rand() % 41 + 20;
     newS.D = rand() % 1000 + 1;
     return newS;
 }
@@ -44,13 +37,21 @@ int main()
     int i = 0, j = 0;
     unsigned int rDiskBase = 12345678;
     unsigned int sDiskBase = 56781234;
-    unsigned int * nextBlockAddr;
+    unsigned int r1Base = 3456;
+    unsigned int r2Base = 100000;
+    unsigned int r3Base = 800000;
+
+    unsigned int * nextBlockPtr;
+    unsigned int nextBlockAddr;
+    unsigned char * blk;
     char selection;
+    int temp;
+    int block_usage = 0;
 
     srand((unsigned int)(time(0)));
 
     /* Initialize the buffer */
-    if (!initBuffer(64*8, BLOCK_SIZE, &buf))
+    if (!initBuffer((BLOCK_SIZE+1)*8, BLOCK_SIZE, &buf))
     {
         perror("Buffer Initialization Failed!\n");
         return -1;
@@ -62,20 +63,19 @@ int main()
             *(blkR+j) = gen_R();
         }
 
-        nextBlockAddr = (unsigned int *)(blkR + j);
+        nextBlockPtr = (unsigned int *)(blkR + j);
         if(i < 15) {
-            *nextBlockAddr = rDiskBase + (i+1)*BLOCK_SIZE;
-            *(nextBlockAddr+1) = 0;
+            *nextBlockPtr = rDiskBase + (i+1)*BLOCK_SIZE;
+            *(nextBlockPtr+1) = 0;
         } else {
-            *nextBlockAddr = 0;
-            *(nextBlockAddr+1) = 0;
+            *nextBlockPtr = 0;
+            *(nextBlockPtr+1) = 0;
         }
         if (writeBlockToDisk((unsigned char *)blkR, rDiskBase + i*BLOCK_SIZE, &buf) != 0)
         {
             perror("Writing Block Failed!\n");
             return -1;
         }
-        freeBlockInBuffer((unsigned char *)blkR, &buf);
     }
 
     for (i = 0; i < 32; i++) {
@@ -84,20 +84,19 @@ int main()
             *(blkS+j) = gen_S();
         }
 
-        nextBlockAddr = (unsigned int *)(blkR + j);
+        nextBlockPtr = (unsigned int *)(blkS + j);
         if(i < 31) {
-            *nextBlockAddr = sDiskBase + (i+1)*BLOCK_SIZE;
-            *(nextBlockAddr+1) = 0;
+            *nextBlockPtr = sDiskBase + (i+1)*BLOCK_SIZE;
+            *(nextBlockPtr+1) = 0;
         } else {
-            *nextBlockAddr = 0;
-            *(nextBlockAddr+1) = 0;
+            *nextBlockPtr = 0;
+            *(nextBlockPtr+1) = 0;
         }
         if (writeBlockToDisk((unsigned char *)blkS, sDiskBase + i*BLOCK_SIZE, &buf) != 0)
         {
             perror("Writing Block Failed!\n");
             return -1;
         }
-        freeBlockInBuffer((unsigned char *)blkS, &buf);
     }
 
     while(1) {
@@ -111,19 +110,105 @@ int main()
         scanf("%c", &selection);
 
         if (selection == '1') {
+            /*关系选择算法 选出R.A=40或S.C=60的元组*/
+            blk = getNewBlockInBuffer(&buf);
+            block_usage = 0;
+            for(i = 0; i < 16; i++) {
+                if ((blkR = (R *)readBlockFromDisk(rDiskBase + i*BLOCK_SIZE, &buf)) == NULL) {
+                    perror("Reading Block Failed!\n");
+                    return -1;
+                }
+                for (j = 0; j < 7; j++) {
+                    temp = blkR[j].A;
+                    if (temp == 40) {
+                        printf("%d\t%d\n", blkR[j].A, blkR[j].B);
+                        if(block_usage == BLOCK_SIZE-8) {
+                            *(unsigned int *)(blk+block_usage) = r1Base + BLOCK_SIZE;
+                            *(unsigned int *)(blk+block_usage+sizeof(int)) = 0;
+                            if (writeBlockToDisk(blk, r1Base, &buf) != 0)
+                            {
+                                perror("Writing Block Failed!\n");
+                                return -1;
+                            }
+                            r1Base += BLOCK_SIZE;
+                            blk = getNewBlockInBuffer(&buf);
+                            block_usage = 0;
+                        }
+                        *(R *)(blk+block_usage) = blkR[j];
+                        block_usage += sizeof(R);
+                    }
+                }
+                freeBlockInBuffer((unsigned char * )blkR, &buf);
+            }
+            for (i = 0; i < 32; i++) {
+                if ((blkS = (S *)readBlockFromDisk(sDiskBase + i*BLOCK_SIZE, &buf)) == NULL) {
+                    perror("Reading Block Failed!\n");
+                    return -1;
+                }
+                for (j = 0; j < 7; j++) {
+                    temp = blkS[j].C;
+                    if (temp == 60) {
+                        printf("%d\t%d\n", blkS[j].C, blkS[j].D);
+                        if(block_usage == BLOCK_SIZE-8) {
+                            *(unsigned int *)(blk+block_usage) = r1Base + BLOCK_SIZE;
+                            *(unsigned int *)(blk+block_usage+sizeof(int)) = 0;
+                            if (writeBlockToDisk(blk, r1Base, &buf) != 0)
+                            {
+                                perror("Writing Block Failed!\n");
+                                return -1;
+                            }
+                            r1Base += BLOCK_SIZE;
+                            blk = getNewBlockInBuffer(&buf);
+                            block_usage = 0;
+                        }
+                        *(S *)(blk+block_usage) = blkS[j];
+                        block_usage += sizeof(S);
+                    }
+                }
+                freeBlockInBuffer((unsigned char * )blkS, &buf);
+            }
+            // 剩余部分写入文件
+            while(block_usage < BLOCK_SIZE-4) {
+                *(unsigned int *)(blk+block_usage) = 0;
+                block_usage += sizeof(int);
+            }
+            if (writeBlockToDisk(blk, r1Base, &buf) != 0)
+            {
+                perror("Writing Block Failed!\n");
+                return -1;
+            }
+            r1Base = 3456;
         } else if (selection == '2') {
+            /*关系投影算法, 对关系R上的A属性进行投影*/
+            for(i = 0; i < 16; i++) {
+                if ((blkR = (R *)readBlockFromDisk(rDiskBase, &buf)) == NULL) {
+                    perror("Reading Block Failed!\n");
+                    return -1;
+                }
+                for (j = 0; j < 7; j++) {
+                }
+                temp = blkR[i].B;
+            }
+            r2Base = 100000;
         } else if (selection == '3') {
+            /*NLJ 算法， R.A 连接 S.C */
+            r3Base = 800000;
+        } else {
+            break;
         }
 
-        if ((blkR = (R *)readBlockFromDisk(rDiskBase, &buf)) == NULL) {
-            perror("Reading Block Failed!\n");
-            return -1;
-        }
         if ((blkS = (S *)readBlockFromDisk(sDiskBase, &buf)) == NULL) {
             perror("Reading Block Failed!\n");
             return -1;
         }
     }
+
+    printf("Buffer Size %zu\n", buf.bufSize);
+    printf("Block Size %zu\n", buf.blkSize);
+    printf("Blocks Number %zu\n", buf.numAllBlk);
+    printf("Blocks Free %zu\n", buf.numFreeBlk);
+
+    freeBuffer(&buf);
 
     return 0;
 }
