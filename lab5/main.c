@@ -36,7 +36,7 @@ S gen_S() {
  */
 int setPush(int *Array, int value) {
     int i;
-    for(i=0; i<40; i++) {
+    for(i=0; i<41; i++) {
         if (Array[i] == value) {
             return -1;
         } else if (Array[i] == 0) {
@@ -52,7 +52,7 @@ int main()
     Buffer buf; /* A buffer */
     R *blkR;   /* A pointer to R */
     S *blkS;   /* A pointer to S */
-    int i = 0, j = 0;
+    int i = 0, j = 0, k, l;
     unsigned int rDiskBase = 12345678;
     unsigned int sDiskBase = 56781234;
     unsigned int r1Base = 3456;
@@ -60,12 +60,12 @@ int main()
     unsigned int r3Base = 800000;
 
     unsigned int * nextBlockPtr;
-    unsigned int nextBlockAddr;
+    unsigned int nextBlockAddr = 0;
     unsigned char * blk;
     char selection;
     int temp;
     int block_usage = 0;
-    int Array[40];
+    int Array[41];
 
     srand((unsigned int)(time(0)));
 
@@ -189,7 +189,7 @@ int main()
                 freeBlockInBuffer((unsigned char * )blkS, &buf);
             }
             // 剩余部分写入文件
-            while(block_usage < BLOCK_SIZE-4) {
+            while(block_usage < BLOCK_SIZE) {
                 *(unsigned int *)(blk+block_usage) = 0;
                 block_usage += sizeof(int);
             }
@@ -239,7 +239,7 @@ int main()
                 freeBlockInBuffer((unsigned char * )blkR, &buf);
             }
             // 剩余部分写入文件
-            while(block_usage < BLOCK_SIZE-4) {
+            while(block_usage < BLOCK_SIZE) {
                 *(unsigned int *)(blk+block_usage) = 0;
                 block_usage += sizeof(int);
             }
@@ -256,6 +256,60 @@ int main()
             block_usage = 0;
             blk = getNewBlockInBuffer(&buf);
 
+            for(i = 0; i < 16; i++) {
+                if ((blkR = (R *)readBlockFromDisk(rDiskBase + i*BLOCK_SIZE, &buf)) == NULL) {
+                    perror("Reading Block Failed!\n");
+                    return -1;
+                }
+                for (j = 0; j < 7; j++) {
+                    temp = blkR[j].A;
+                    if (temp == 0) {
+                        break;
+                    }
+                    for (k = 0; k < 32; k++) {
+                        if ((blkS = (S *)readBlockFromDisk(sDiskBase + k*BLOCK_SIZE, &buf)) == NULL) {
+                            perror("Reading Block Failed!\n");
+                            return -1;
+                        }
+                        for (l = 0; l < 7; l++) {
+                            if (temp == blkS[l].C) {
+                                /* printf("k= %d\tl = %d\n", k,l); */
+                                printf("%d\t%d\t%d\n", blkR[j].A, blkR[j].B, blkS[l].D);
+                                /**
+                                 * 每块存储 5 个元组  3*5*4=60个字节, 还剩4个字节存储下块地址
+                                 */
+                                if(block_usage == BLOCK_SIZE-4) {
+                                    *(unsigned int *)(blk+block_usage) = r3Base + BLOCK_SIZE;
+                                    if (writeBlockToDisk(blk, r3Base, &buf) != 0)
+                                    {
+                                        perror("Writing Block Failed!\n");
+                                        return -1;
+                                    }
+                                    r3Base += BLOCK_SIZE;
+                                    blk = getNewBlockInBuffer(&buf);
+                                    block_usage = 0;
+                                }
+                                *(int *)(blk+block_usage) = blkR[j].A;
+                                *(int *)(blk+block_usage+4) = blkR[j].B;
+                                *(int *)(blk+block_usage+8) = blkS[l].D;
+                                block_usage += 12;
+                            }
+                        }
+                        freeBlockInBuffer((unsigned char * )blkS, &buf);
+                    }
+                }
+                freeBlockInBuffer((unsigned char * )blkR, &buf);
+            }
+            // 剩余部分写入文件
+            while(block_usage < BLOCK_SIZE) {
+                *(unsigned int *)(blk+block_usage) = 0;
+                block_usage += sizeof(int);
+            }
+            if (writeBlockToDisk(blk, r3Base, &buf) != 0)
+            {
+                perror("Writing Block Failed!\n");
+                return -1;
+            }
 
             r3Base = 800000;
         } else {
