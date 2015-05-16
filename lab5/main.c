@@ -60,7 +60,6 @@ int main()
     unsigned int r3Base = 800000;
 
     unsigned int * nextBlockPtr;
-    unsigned int nextBlockAddr = 0;
     unsigned char * blk;
     char selection;
     int temp;
@@ -198,6 +197,7 @@ int main()
                 perror("Writing Block Failed!\n");
                 return -1;
             }
+            freeBlockInBuffer(blk, &buf);
             r1Base = 3456;
         } else if (selection == '2') {
             /**
@@ -248,6 +248,7 @@ int main()
                 perror("Writing Block Failed!\n");
                 return -1;
             }
+            freeBlockInBuffer(blk, &buf);
             r2Base = 100000;
         } else if (selection == '3') {
             /**
@@ -311,6 +312,7 @@ int main()
                 return -1;
             }
 
+            freeBlockInBuffer(blk, &buf);
             r3Base = 800000;
         } else {
             break;
